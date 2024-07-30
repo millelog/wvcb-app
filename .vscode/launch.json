@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Debug Angular",
+      "url": "http://localhost:4200",
+      "webRoot": "/frontend/wvcb-frontend"
+    },
+    {
+      "name": "Debug ASP.NET Core",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "/backend/WVCB.API/bin/Debug/net6.0/WVCB.API.dll",
+      "args": [],
+      "cwd": "/backend/WVCB.API",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  ]
+}

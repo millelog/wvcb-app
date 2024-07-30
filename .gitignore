@@ -1,0 +1,68 @@
+# Node modules
+node_modules/
+**/node_modules/
+
+# Angular
+/frontend/dist
+/frontend/tmp
+/frontend/out-tsc
+/frontend/bazel-out
+/frontend/.angular
+/frontend/.nx
+
+# Angular IDE
+/frontend/.idea
+/frontend/.project
+/frontend/.classpath
+/frontend/.c9/
+/frontend/*.launch
+/frontend/.settings/
+/frontend/*.sublime-workspace
+
+# ASP.NET Core
+/backend/**/bin/
+/backend/**/obj/
+/backend/**/*.user
+/backend/**/*.userosscache
+/backend/**/*.sln.docstates
+/backend/.vs/
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/*
+
+# Misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+
+# System files
+.DS_Store
+Thumbs.db
+
+# pnpm
+pnpm-debug.log
+.pnpm-store/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE-specific files
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

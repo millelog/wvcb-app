@@ -1,0 +1,12 @@
+{
+  "name": "wvcb-app",
+  "version": "1.0.0",
+  "scripts": {
+    "start:frontend": "cd frontend/wvcb-frontend && ng serve",
+    "start:backend": "cd backend/WVCB.API && dotnet run",
+    "start": "concurrently \"pnpm run start:frontend\" \"pnpm run start:backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^6.2.0"
+  }
+}

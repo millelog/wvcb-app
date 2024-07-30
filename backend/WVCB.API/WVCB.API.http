@@ -1,0 +1,6 @@
+@WVCB.API_HostAddress = http://localhost:5155
+
+GET {{WVCB.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
