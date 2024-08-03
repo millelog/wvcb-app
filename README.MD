@@ -32,7 +32,7 @@ Before you begin, ensure you have the following installed:
 
 - [Node.js](https://nodejs.org/) (LTS version recommended)
 - [pnpm](https://pnpm.io/)
-- [.NET SDK](https://dotnet.microsoft.com/download) (version 6.0 or later)
+- [.NET SDK](https://dotnet.microsoft.com/download) (version 8.0 or later)
 - [Visual Studio Code](https://code.visualstudio.com/) (recommended IDE)
 
 ## Getting Started
