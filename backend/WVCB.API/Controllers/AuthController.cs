@@ -20,15 +20,18 @@ namespace WVCB.API.Controllers
     {
         private readonly UserManager<IdentityUser<Guid>> _userManager;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AuthController> _logger;
         private readonly ApplicationDbContext _context;
 
         public AuthController(
             UserManager<IdentityUser<Guid>> userManager,
             IConfiguration configuration,
+            ILogger<AuthController> logger,
             ApplicationDbContext context)
         {
             _userManager = userManager;
             _configuration = configuration;
+            _logger = logger;
             _context = context;
         }
 
@@ -105,41 +108,78 @@ namespace WVCB.API.Controllers
         [Route("register")]
         public async Task<IActionResult> Register([FromBody] RegisterModel model)
         {
-            var identityUserExists = await _userManager.FindByNameAsync(model.Email);
-            if (identityUserExists != null)
-                return StatusCode(StatusCodes.Status500InternalServerError, new { Status = "Error", Message = "User account already exists!" });
-
-            var applicationUser = new ApplicationUser
+            try
             {
-                Email = model.Email,
-                FirstName = model.FirstName,
-                LastName = model.LastName,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-                Status = UserStatus.Active,
-                Role = UserRole.Member,
-                JoinDate = DateTime.UtcNow
-            };
+                // Check if an IdentityUser with this email already exists
+                var identityUser = await _userManager.FindByNameAsync(model.Email);
+                if (identityUser != null)
+                    return StatusCode(StatusCodes.Status400BadRequest, new { Status = "Error", Message = "User account already exists!" });
 
-            _context.ApplicationUsers.Add(applicationUser);
-            await _context.SaveChangesAsync();
+                // Check if an ApplicationUser with this email already exists
+                var applicationUser = await _context.ApplicationUsers
+                    .FirstOrDefaultAsync(u => u.Email == model.Email);
 
-            var identityUser = new IdentityUser<Guid>
+                if (applicationUser == null)
+                {
+                    // If no ApplicationUser exists, create a new one
+                    applicationUser = new ApplicationUser
+                    {
+                        Id = Guid.NewGuid(), // Explicitly set the Id
+                        Email = model.Email,
+                        FirstName = model.FirstName,
+                        LastName = model.LastName,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        Status = UserStatus.Active,
+                        Role = UserRole.Guest,
+                        JoinDate = DateTime.UtcNow
+                    };
+
+                    _context.ApplicationUsers.Add(applicationUser);
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    // If ApplicationUser exists, update FirstName and LastName if they're different
+                    if (applicationUser.FirstName != model.FirstName || applicationUser.LastName != model.LastName)
+                    {
+                        applicationUser.FirstName = model.FirstName;
+                        applicationUser.LastName = model.LastName;
+                        applicationUser.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                    }
+                }
+
+                // Create a new IdentityUser
+                identityUser = new IdentityUser<Guid>
+                {
+                    Id = Guid.NewGuid(), // Explicitly set the Id
+                    UserName = model.Email,
+                    Email = model.Email,
+                };
+
+                var result = await _userManager.CreateAsync(identityUser, model.Password);
+                if (!result.Succeeded)
+                {
+                    var errors = result.Errors.Select(e => e.Description);
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { Status = "Error", Message = "User account creation failed!", Errors = errors });
+                }
+
+                // Associate the IdentityUser with the ApplicationUser
+                applicationUser.IdentityUserId = identityUser.Id;
+                await _context.SaveChangesAsync();
+
+                // Assign the Member role to the new user
+                await _userManager.AddToRoleAsync(identityUser, UserRole.Member.ToString());
+
+                return Ok(new { Status = "Success", Message = "User account created successfully!" });
+            }
+            catch (Exception ex)
             {
-                UserName = model.Email,
-                Email = model.Email,
-            };
-
-            var result = await _userManager.CreateAsync(identityUser, model.Password);
-            if (!result.Succeeded)
-                return StatusCode(StatusCodes.Status500InternalServerError, new { Status = "Error", Message = "User account creation failed! Please check user details and try again." });
-
-            applicationUser.IdentityUserId = identityUser.Id;
-            await _context.SaveChangesAsync();
-
-            await _userManager.AddToRoleAsync(identityUser, UserRole.Member.ToString());
-
-            return Ok(new { Status = "Success", Message = "User account created successfully!" });
+                // Log the exception
+                _logger.LogError(ex, "An error occurred during user registration");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { Status = "Error", Message = "An unexpected error occurred during registration.", Error = ex.Message });
+            }
         }
 
         [HttpPost]

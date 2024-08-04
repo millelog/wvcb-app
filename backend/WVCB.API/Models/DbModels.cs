@@ -19,13 +19,14 @@ namespace WVCB.API.Models
         [Required]
         [EmailAddress]
         public string Email { get; set; }
-
-        public string Instrument { get; set; }
+        //nullable
+        public string? Instrument { get; set; }
+        public string? Phone { get; set; }
         public UserRole Role { get; set; }
         public UserStatus Status { get; set; }
         public DateTime JoinDate { get; set; }
-        public string EmergencyContactName { get; set; }
-        public string EmergencyContactPhone { get; set; }
+        public string? EmergencyContactName { get; set; }
+        public string? EmergencyContactPhone { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public Guid? SectionId { get; set; }

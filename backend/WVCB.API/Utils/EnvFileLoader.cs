@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
-namespace WVCB.API.Services
+namespace WVCB.API.Utils
 {
     public static class EnvFileLoader
     {

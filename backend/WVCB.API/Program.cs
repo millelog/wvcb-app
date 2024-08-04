@@ -7,6 +7,7 @@ using System.Text;
 using WVCB.API.Data;
 using WVCB.API.Models;
 using WVCB.API.Services;
+using WVCB.API.Utils;
 using Npgsql.EntityFrameworkCore.PostgreSQL;
 
 // Load environment variables at the very beginning
@@ -16,7 +17,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 var connectionString = Environment.GetEnvironmentVariable("POSTGRESQLURL");
-Console.WriteLine($"Connection string: {connectionString}");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
@@ -63,9 +63,9 @@ builder.Services.AddAuthentication(options =>
     {
         ValidateIssuer = true,
         ValidateAudience = true,
-        ValidAudience = Environment.GetEnvironmentVariable("JWT_VALIDAUDIENCE"),
-        ValidIssuer = Environment.GetEnvironmentVariable("JWT_VALIDISSUER"),
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT_SECRET")))
+        ValidAudience = Environment.GetEnvironmentVariable("JWT__VALIDAUDIENCE"),
+        ValidIssuer = Environment.GetEnvironmentVariable("JWT__VALIDISSUER"),
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT__SECRET")))
     };
 });
 
@@ -106,6 +106,21 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+// Seed roles
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        await RoleSeeder.SeedRoles(services);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while seeding roles.");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
