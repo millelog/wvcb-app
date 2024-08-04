@@ -1,0 +1,28 @@
+<nav class="bg-gray-900 text-white">
+  <div class="container mx-auto px-4">
+    <div class="flex justify-between items-center py-4">
+      <div class="flex items-center">
+        <img
+          src="assets/wvcb-logo.png"
+          alt="WVCB Logo"
+          class="h-8 w-auto mr-4"
+        />
+        <span class="text-xl font-bold">WVCB</span>
+      </div>
+      <div class="hidden md:flex space-x-4">
+        <ng-container *ngFor="let item of navItems">
+          <a
+            [routerLink]="item.route"
+            routerLinkActive="text-blue-500"
+            class="hover:text-blue-300 transition duration-300"
+          >
+            {{ item.label }}
+          </a>
+        </ng-container>
+      </div>
+      <div class="md:hidden">
+        <!-- Add mobile menu button here if needed -->
+      </div>
+    </div>
+  </div>
+</nav>
