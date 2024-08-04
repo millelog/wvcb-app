@@ -80,7 +80,9 @@ namespace WVCB.API.Controllers
                     UpdatedAt = DateTime.UtcNow,
                     UserAgent = Request.Headers["User-Agent"].ToString(),
                     IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-                    LastActive = DateTime.UtcNow
+                    LastActive = DateTime.UtcNow,
+                    Data = null
+
                 };
 
                 _context.Sessions.Add(session);

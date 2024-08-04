@@ -154,21 +154,29 @@ namespace WVCB.API.Models
     {
         [Key]
         public Guid Id { get; set; }
+
         [Required]
         public Guid UserId { get; set; }
+
         [Required]
         public DateTime ExpiresAt { get; set; }
+
         [Required]
         public DateTime CreatedAt { get; set; }
+
         [Required]
         public DateTime UpdatedAt { get; set; }
-        public string UserAgent { get; set; }
-        public string IpAddress { get; set; }
+
+        public string? UserAgent { get; set; }
+
+        public string? IpAddress { get; set; }
+
         public DateTime? LastActive { get; set; }
-        public string Data { get; set; }
+
+        public string? Data { get; set; }  // Changed to nullable
 
         [ForeignKey("UserId")]
-        public virtual ApplicationUser User { get; set; }
+        public virtual ApplicationUser User { get; set; } = null!;
     }
 
     public enum UserRole
