@@ -1,6 +1,6 @@
 <!-- register.component.html -->
 <div
-  class="min-h-screen bg-offwhite flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+  class="min-h-screen bg-offwhite flex justify-center py-12 px-4 sm:px-6 lg:px-8"
 >
   <div class="max-w-md w-full space-y-8">
     <div>
@@ -77,6 +77,10 @@
             placeholder="Confirm password"
           />
         </div>
+      </div>
+
+      <div *ngIf="errorMessage" class="text-red-600 text-sm mt-2">
+        {{ errorMessage }}
       </div>
 
       <div>
