@@ -5,10 +5,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using WVCB.API.Data;
-using WVCB.API.Models;
 using WVCB.API.Services;
 using WVCB.API.Utils;
-using Npgsql.EntityFrameworkCore.PostgreSQL;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 // Load environment variables at the very beginning
 EnvFileLoader.LoadEnvFile(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
@@ -68,6 +67,16 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT__SECRET")))
     };
 });
+
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ApplicationDbContext>()
+    .AddCheck("Memory", () =>
+    {
+        var memoryUsage = GC.GetTotalMemory(false);
+        return memoryUsage < 1024L * 1024 * 1024 ? // 1 GB
+            HealthCheckResult.Healthy("Memory usage is normal") :
+            HealthCheckResult.Degraded("Memory usage is high");
+    });
 
 builder.Services.AddControllers();
 
@@ -152,5 +161,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();
