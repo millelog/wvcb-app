@@ -15,7 +15,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
         >
           <!-- About Us Column -->
           <div class="lg:w-1/2 max-w-[600px]">
-            <h2 class="text-xl font-bold mb-6 text-primary">ABOUT US</h2>
+            <h2 class="text-xl font-bold mb-6 text-cta">ABOUT US</h2>
 
             <h3 class="text-4xl font-semibold mb-4 text-seconday">
               Continuing Music Traditions

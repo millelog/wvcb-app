@@ -1,12 +1,23 @@
 {
   "name": "wvcb-app",
   "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend/wvcb-frontend"
+  ],
   "scripts": {
     "start:frontend": "cd frontend/wvcb-frontend && ng serve",
     "start:backend": "cd backend/WVCB.API && dotnet run",
-    "start": "concurrently \"pnpm run start:frontend\" \"pnpm run start:backend\""
+    "start": "concurrently \"pnpm run start:frontend\" \"pnpm run start:backend\"",
+    "build:frontend": "cd frontend/wvcb-frontend && ng build --configuration production",
+    "publish:frontend": "pnpm run build:frontend && node upload-to-azure.js"
   },
   "devDependencies": {
-    "concurrently": "^6.2.0"
+    "@azure/storage-blob": "^12.13.0",
+    "concurrently": "^6.2.0",
+    "dotenv": "^16.4.5"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
   }
 }

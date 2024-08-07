@@ -4,6 +4,10 @@
 const imageMap: Record<string, string> = {
   'wvcb-hero': 'e03eef2e-4bdd-4228-2601-69453cecb400',
   'logo-white': '98b4300f-f459-4718-fdc4-0399579bc800',
+  'sponsor-1': 'a3292299-5060-42d8-d9c8-b5ea5479fe00',
+  'sponsor-2': '86e20ef0-362f-41d2-6c49-0c7e10e92800',
+  'sponsor-3': 'bafaac4d-4e3b-44f6-49d9-765dbdb43300',
+  'sponsor-4': '23035300-45a6-4ca5-def3-e6af18dfe900',
 };
 
 const defaultParams: Record<string, string | number> = {

@@ -9,6 +9,7 @@ module.exports = {
         offwhite: "#F1F5FD",
         cta: "#1E70EA",
         wvcbgrey: "#323842",
+        wvcbnavy: "#16253D",
         "custom-blue": {
           100: "#E6F0FF",
           200: "#BFDAFF",

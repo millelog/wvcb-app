@@ -3,11 +3,12 @@ import { CommonModule, NgStyle } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { ImageService } from '../../services/image.service';
 import { AboutUsComponent } from './about-us.component';
+import { SponsorComponent } from './sponsor.component';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, NgStyle, AboutUsComponent],
+  imports: [CommonModule, NgStyle, AboutUsComponent, SponsorComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.scss',
 })
