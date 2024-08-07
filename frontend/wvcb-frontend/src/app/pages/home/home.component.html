@@ -1,22 +1,19 @@
-<div class="relative w-full" style="padding-top: 56.25%">
-  <!-- Hero Image -->
-  <img
-    [src]="heroImageUrl"
-    alt="WVCB Hero"
-    class="absolute inset-0 w-full h-full object-cover"
-  />
-
+<!-- home.component.html -->
+<div
+  class="relative bg-cover bg-center bg-no-repeat"
+  [ngStyle]="{ 'background-image': 'url(' + heroImageUrl + ')' }"
+>
   <!-- Overlay -->
   <div class="absolute inset-0 bg-secondary bg-opacity-50"></div>
 
   <!-- Content -->
-  <div class="inset-0 flex items-center">
+  <div class="relative z-10 py-20 md:py-32 lg:py-48">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8">
       <div class="max-w-3xl">
         <h1
-          class="text-white text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-4 sm:mb-6"
+          class="text-white text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-4 sm:mb-6 text-balance"
         >
-          Willamette Valley<br class="hidden sm:inline" />Concert Band
+          Willamette Valley Concert Band
         </h1>
         <p class="text-white text-base sm:text-lg md:text-xl mb-6 sm:mb-8">
           Experience the joy of live music with the Willamette Valley Concert
@@ -33,7 +30,6 @@
     </div>
   </div>
 </div>
-
 <div class="container mx-auto px-4 -mt-14 relative z-10 mb-14">
   <div
     class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 shadow-xl rounded-br-xl rounded-tl-xl"
@@ -170,3 +166,5 @@
     </div>
   </div>
 </div>
+
+<app-about-us></app-about-us>

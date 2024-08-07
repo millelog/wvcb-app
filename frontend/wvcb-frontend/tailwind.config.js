@@ -9,7 +9,6 @@ module.exports = {
         offwhite: "#F1F5FD",
         cta: "#1E70EA",
         wvcbgrey: "#323842",
-        accent: "#F59E0B",
         "custom-blue": {
           100: "#E6F0FF",
           200: "#BFDAFF",
