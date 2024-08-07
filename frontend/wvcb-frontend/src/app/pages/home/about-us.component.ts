@@ -66,7 +66,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
           <div class="lg:w-1/2">
             <div
               [style.width.px]="iframeWidth"
-              class="bg-white rounded-lg shadow-md overflow-hidden mx-auto"
+              class="bg-white overflow-hidden mx-auto"
             >
               <h2 class="text-3xl font-bold mb-6 text-secondary mx-auto">
                 Follow us on Facebook
@@ -74,7 +74,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
               <iframe
                 [src]="facebookUrl"
                 [style.width.px]="iframeWidth"
-                class="h-[600px] mx-auto"
+                class="h-[600px] mx-auto rounded-lg shadow-md "
                 style="border:none;overflow:hidden"
                 scrolling="no"
                 frameborder="0"
