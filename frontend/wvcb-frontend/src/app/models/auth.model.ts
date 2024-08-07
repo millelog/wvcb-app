@@ -24,3 +24,9 @@ export interface AuthResponse {
   instrument?: string;
   sessionId: string;
 }
+
+export interface ErrorResponse {
+  status: string;
+  message: string;
+  errors?: string[];
+}

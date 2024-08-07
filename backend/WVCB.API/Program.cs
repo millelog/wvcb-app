@@ -85,14 +85,13 @@ var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<stri
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAzureStaticWebApp", policy =>
+    options.AddPolicy("AllowSpecificOrigins", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy.AllowAnyOrigin()
              .AllowAnyMethod()
              .AllowAnyHeader();
     });
 });
-
 
 // Add ApplicationUser related services
 builder.Services.AddScoped<ApplicationUserManager>();
@@ -149,14 +148,13 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
-    // Enable Swagger UI
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "WVCB API v1"));
 }
 
 app.UseHttpsRedirection();
 // Use CORS
-app.UseCors("AllowAzureStaticWebApp");
+app.UseCors("AllowSpecificOrigins");
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -21,6 +21,7 @@ import { AuthService } from '../../services/auth.service';
 export class RegisterComponent implements OnInit {
   registerForm: FormGroup;
   errorMessage: string = '';
+  errorList: string[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -64,6 +65,22 @@ export class RegisterComponent implements OnInit {
       : { passwordMismatch: true };
   }
 
+  private handleErrorResponse(error: HttpErrorResponse) {
+    console.error('Registration error', error);
+    if (error.status === 0) {
+      this.errorMessage =
+        'Unable to connect to the server. Please check your internet connection and try again.';
+    } else if (error.status === 500 && error.error) {
+      this.errorMessage =
+        error.error.message ||
+        'An unexpected error occurred during registration.';
+      this.errorList = error.error.errors || [];
+    } else {
+      this.errorMessage =
+        'An unexpected error occurred. Please try again later.';
+    }
+  }
+
   onSubmit() {
     if (this.registerForm.valid) {
       const formValue = this.registerForm.value;
@@ -91,15 +108,12 @@ export class RegisterComponent implements OnInit {
               },
               error: (loginError: HttpErrorResponse) => {
                 console.error('Login error', loginError);
-                this.errorMessage =
-                  'Registration successful, but login failed. Please try logging in manually.';
+                this.handleErrorResponse(loginError);
               },
             });
         },
         error: (error: HttpErrorResponse) => {
-          console.error('Registration error', error);
-          this.errorMessage =
-            error.error?.message || 'Registration failed. Please try again.';
+          this.handleErrorResponse(error);
         },
       });
     }

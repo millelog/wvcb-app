@@ -4,7 +4,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
-import { AuthResponse, LoginModel, RegisterModel } from '../models/auth.model';
+import { AuthResponse, LoginModel } from '../models/auth.model';
 
 @Injectable({
   providedIn: 'root',
@@ -14,10 +14,12 @@ export class AuthService {
 
   constructor(private http: HttpClient) {}
 
-  register(userData: RegisterModel): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(
-      `${this.apiUrl}/auth/register`,
-      userData
+  register(userData: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/auth/register`, userData).pipe(
+      tap({
+        next: (response) => console.log('Registration successful', response),
+        error: (error) => console.error('Registration error', error),
+      })
     );
   }
 

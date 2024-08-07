@@ -79,9 +79,26 @@
         </div>
       </div>
 
-      <div *ngIf="errorMessage" class="text-red-600 text-sm mt-2">
-        {{ errorMessage }}
+      <div
+        *ngIf="errorMessage"
+        class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4"
+        role="alert"
+      >
+        <p class="font-bold">Error</p>
+        <p>{{ errorMessage }}</p>
       </div>
+
+      <ul
+        *ngIf="errorList.length > 0"
+        class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-4"
+      >
+        <li
+          *ngFor="let error of errorList"
+          class="list-disc list-inside mb-1 text-sm"
+        >
+          {{ error }}
+        </li>
+      </ul>
 
       <div>
         <button
