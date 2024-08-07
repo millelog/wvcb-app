@@ -33,10 +33,36 @@ async function uploadFile(filePath) {
 
   try {
     const data = await fs.readFile(filePath);
-    await blockBlobClient.upload(data, data.length);
+    const contentType = getContentType(filePath);
+    await blockBlobClient.upload(data, data.length, {
+      blobHTTPHeaders: { blobContentType: contentType },
+    });
     console.log(`Uploaded file ${blobName} successfully`);
   } catch (error) {
     console.error(`Error uploading file ${blobName}: ${error.message}`);
+  }
+}
+
+function getContentType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case ".html":
+      return "text/html";
+    case ".js":
+      return "application/javascript";
+    case ".css":
+      return "text/css";
+    case ".json":
+      return "application/json";
+    case ".png":
+      return "image/png";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".gif":
+      return "image/gif";
+    default:
+      return "application/octet-stream";
   }
 }
 
@@ -59,6 +85,8 @@ async function main() {
     await deleteAllBlobs();
     await uploadDirectory(sourceDir);
     console.log("Upload completed successfully");
+    console.log("\nYour website is now available at:");
+    console.log(`https://${accountName}.z21.web.core.windows.net/`);
   } catch (error) {
     console.error(`Error during upload: ${error.message}`);
   }
