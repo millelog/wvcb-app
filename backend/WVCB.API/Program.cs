@@ -71,6 +71,20 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddControllers();
 
+// Add CORS policy
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAzureStaticWebApp", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+             .AllowAnyMethod()
+             .AllowAnyHeader();
+    });
+});
+
+
 // Add ApplicationUser related services
 builder.Services.AddScoped<ApplicationUserManager>();
 
@@ -132,6 +146,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+// Use CORS
+app.UseCors("AllowAzureStaticWebApp");
 app.UseAuthentication();
 app.UseAuthorization();
 
