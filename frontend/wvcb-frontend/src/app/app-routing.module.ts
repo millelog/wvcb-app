@@ -7,6 +7,7 @@ import { EventsComponent } from './pages/events/events.component';
 import { HomeComponent } from './pages/home/home.component';
 import { JoinComponent } from './pages/join/join.component';
 import { MembersComponent } from './pages/members/members.component';
+import { RegisterComponent } from './pages/register/register.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -17,6 +18,7 @@ export const routes: Routes = [
   { path: 'contact', component: ContactComponent },
   { path: 'members', component: MembersComponent },
   { path: 'donate', component: DonateComponent },
+  { path: 'register', component: RegisterComponent },
 ];
 
 @NgModule({
