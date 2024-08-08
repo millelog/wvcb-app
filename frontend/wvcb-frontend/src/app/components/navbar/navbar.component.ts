@@ -5,6 +5,14 @@ import { Subscription } from 'rxjs';
 import { ApplicationUser } from '../../models/models';
 import { AuthService } from '../../services/auth.service';
 import { ImageService } from '../../services/image.service';
+import { ToastService } from '../../services/toast/toast.service';
+
+interface NavItem {
+  label: string;
+  route?: string;
+  subItems?: NavItem[];
+  isOpen?: boolean;
+}
 
 @Component({
   selector: 'app-navbar',
@@ -15,21 +23,29 @@ import { ImageService } from '../../services/image.service';
 export class NavbarComponent implements OnInit, OnDestroy {
   logoUrl: string = '';
   isMenuOpen: boolean = false;
+  isUserMenuOpen: boolean = false;
   currentUser: ApplicationUser | null = null;
   private userSubscription: Subscription | null = null;
-  navItems = [
-    { label: 'HOME', route: '/home' },
-    { label: 'EVENTS', route: '/events' },
-    { label: 'ABOUT', route: '/about-us' },
-    { label: 'JOIN', route: '/join' },
-    { label: 'CONTACT', route: '/contact' },
+  navItems: NavItem[] = [
+    { label: 'Home', route: '/home' },
+    { label: 'Events', route: '/events' },
+    {
+      label: 'About Us',
+      subItems: [
+        { label: 'About', route: '/about-us' },
+        { label: 'Join', route: '/join' },
+        { label: 'Contact', route: '/contact' },
+      ],
+      isOpen: false,
+    },
   ];
-  donateItem = { label: 'DONATE', route: '/donate' };
+  donateItem = { label: 'Donate', route: '/donate' };
 
   constructor(
     private imageService: ImageService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private toastService: ToastService
   ) {}
 
   ngOnInit() {
@@ -51,15 +67,40 @@ export class NavbarComponent implements OnInit, OnDestroy {
     this.isMenuOpen = !this.isMenuOpen;
   }
 
+  toggleUserMenu() {
+    this.isUserMenuOpen = !this.isUserMenuOpen;
+    // Close other open menus when opening user menu
+    this.navItems.forEach((item) => (item.isOpen = false));
+  }
+
+  toggleSubmenu(item: NavItem) {
+    item.isOpen = !item.isOpen;
+    // Close other open menus
+    this.navItems.forEach((navItem) => {
+      if (navItem !== item) {
+        navItem.isOpen = false;
+      }
+    });
+    this.isUserMenuOpen = false;
+  }
+
+  toggleMobileSubmenu(item: NavItem) {
+    item.isOpen = !item.isOpen;
+  }
+
+  toggleMobileUserMenu() {
+    this.isUserMenuOpen = !this.isUserMenuOpen;
+  }
+
   logout() {
     this.authService.logout().subscribe({
       next: () => {
         this.router.navigate(['/home']);
+        this.isUserMenuOpen = false;
       },
       error: (error) => {
         console.error('Logout failed', error);
-        // You might want to show an error message to the user here
-        // For example, using a toast notification service
+        this.toastService.showError('Logout failed');
       },
     });
   }

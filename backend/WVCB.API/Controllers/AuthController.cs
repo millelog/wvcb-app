@@ -76,82 +76,20 @@ namespace WVCB.API.Controllers
 
         [HttpPost]
         [Route("register")]
-        [AllowAnonymous]
-
         public async Task<IActionResult> Register([FromBody] RegisterModel model)
         {
-            try
+            var userAgent = Request.Headers["User-Agent"].ToString();
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+            var response = await _authService.RegisterAsync(model, userAgent, ipAddress);
+
+            if (response.Success)
             {
-                var identityUser = await _userManager.FindByNameAsync(model.Email);
-                if (identityUser != null)
-                    return StatusCode(StatusCodes.Status400BadRequest, new { Status = "Error", Message = "User account already exists!" });
-
-                var applicationUser = await _context.ApplicationUsers
-                    .FirstOrDefaultAsync(u => u.Email == model.Email);
-
-                if (applicationUser == null)
-                {
-                    applicationUser = new ApplicationUser
-                    {
-                        Id = Guid.NewGuid(),
-                        Email = model.Email,
-                        FirstName = model.FirstName,
-                        LastName = model.LastName,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                        Status = UserStatus.Active,
-                        Role = UserRole.Guest,
-                        JoinDate = DateTime.UtcNow
-                    };
-
-                    _context.ApplicationUsers.Add(applicationUser);
-                    await _context.SaveChangesAsync();
-                }
-                else
-                {
-                    if (applicationUser.FirstName != model.FirstName || applicationUser.LastName != model.LastName)
-                    {
-                        applicationUser.FirstName = model.FirstName;
-                        applicationUser.LastName = model.LastName;
-                        applicationUser.UpdatedAt = DateTime.UtcNow;
-                        await _context.SaveChangesAsync();
-                    }
-                }
-
-                identityUser = new IdentityUser<Guid>
-                {
-                    Id = Guid.NewGuid(),
-                    UserName = model.Email,
-                    Email = model.Email,
-                };
-
-                var result = await _userManager.CreateAsync(identityUser, model.Password);
-                if (!result.Succeeded)
-                {
-                    var errors = result.Errors.Select(e => e.Description);
-                    return StatusCode(StatusCodes.Status500InternalServerError, new { Status = "Error", Message = "User account creation failed!", Errors = errors });
-                }
-
-                applicationUser.IdentityUserId = identityUser.Id;
-                await _context.SaveChangesAsync();
-
-                await _userManager.AddToRoleAsync(identityUser, UserRole.Member.ToString());
-
-                // Generate email confirmation token and send email
-                var token = await _userManager.GenerateEmailConfirmationTokenAsync(identityUser);
-                var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-
-                var frontendUrl = _configuration[$"FrontendUrls:{(_environment.IsDevelopment() ? "Development" : "Production")}"];
-                var confirmationLink = $"{frontendUrl}/confirm-email?userId={identityUser.Id}&token={encodedToken}";
-
-                await _emailService.SendEmailAsync(identityUser.Email, "Confirm your email", $"Please confirm your account by clicking this link: <a href='{confirmationLink}'>Confirm Email</a>");
-
-                return Ok(new { Status = "Success", Message = "User account created successfully! Please check your email to confirm your account." });
+                return Ok(response);
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogError(ex, "An error occurred during user registration");
-                return StatusCode(StatusCodes.Status500InternalServerError, new { Status = "Error", Message = "An unexpected error occurred during registration.", Error = ex.Message });
+                return BadRequest(response);
             }
         }
 
@@ -229,19 +167,16 @@ namespace WVCB.API.Controllers
         [Route("profile")]
         public async Task<IActionResult> GetProfile()
         {
-            var user = await _authService.GetUserProfileAsync(User);
-            if (user == null)
+            var response = await _authService.GetUserProfileAsync(User);
+
+            if (response.Success)
             {
-                return NotFound("User profile not found.");
+                return Ok(response);
             }
-
-            var session = new Session
+            else
             {
-                User = user,
-                // You might want to fill in other session details here if needed
-            };
-
-            return Ok(session);
+                return NotFound(response);
+            }
         }
     }
 

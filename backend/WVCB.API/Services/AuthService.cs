@@ -108,13 +108,13 @@ namespace WVCB.API.Services
             );
         }
 
-        public async Task<(Session Session, string Message)> RegisterAsync(RegisterModel model, string userAgent, string ipAddress)
+        public async Task<ApiResponse<Session>> RegisterAsync(RegisterModel model, string userAgent, string ipAddress)
         {
             try
             {
                 var identityUser = await _userManager.FindByNameAsync(model.Email);
                 if (identityUser != null)
-                    return (null, "User account already exists!");
+                    return new ApiResponse<Session> { Success = false, Message = "User account already exists!" };
 
                 var applicationUser = await _context.ApplicationUsers
                     .FirstOrDefaultAsync(u => u.Email == model.Email);
@@ -158,8 +158,8 @@ namespace WVCB.API.Services
                 var result = await _userManager.CreateAsync(identityUser, model.Password);
                 if (!result.Succeeded)
                 {
-                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                    return (null, $"User account creation failed! {errors}");
+                    var errors = result.Errors.Select(e => e.Description).ToList();
+                    return new ApiResponse<Session> { Success = false, Message = "User account creation failed!", Errors = errors.ToArray() };
                 }
 
                 applicationUser.IdentityUserId = identityUser.Id;
@@ -195,30 +195,42 @@ namespace WVCB.API.Services
                 var jwtToken = await GenerateJwtTokenAsync(identityUser, applicationUser);
                 session.Token = new JwtSecurityTokenHandler().WriteToken(jwtToken);
 
-                return (session, "User account created successfully! Please check your email to confirm your account.");
+                return new ApiResponse<Session>
+                {
+                    Success = true,
+                    Message = "User account created successfully! Please check your email to confirm your account.",
+                    Data = session
+                };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred during user registration");
-                return (null, "An unexpected error occurred during registration.");
+                //errors hsould be an array
+                return new ApiResponse<Session> { Success = false, Message = "An unexpected error occurred during registration.", Errors = new List<string> { ex.Message }.ToArray() };
             }
         }
 
-        public async Task<ApplicationUser> GetUserProfileAsync(ClaimsPrincipal user)
+        public async Task<ApiResponse<ApplicationUser>> GetUserProfileAsync(ClaimsPrincipal user)
         {
             var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null)
             {
-                return null;
+                return new ApiResponse<ApplicationUser> { Success = false, Message = "User not found." };
             }
 
             var identityUser = await _userManager.FindByIdAsync(userId);
             if (identityUser == null)
             {
-                return null;
+                return new ApiResponse<ApplicationUser> { Success = false, Message = "User not found." };
             }
 
-            return await _applicationUserManager.FindByIdentityUserIdAsync(identityUser.Id);
+            var applicationUser = await _applicationUserManager.FindByIdentityUserIdAsync(identityUser.Id);
+            if (applicationUser == null)
+            {
+                return new ApiResponse<ApplicationUser> { Success = false, Message = "User profile not found." };
+            }
+
+            return new ApiResponse<ApplicationUser> { Success = true, Data = applicationUser };
         }
     }
 }
