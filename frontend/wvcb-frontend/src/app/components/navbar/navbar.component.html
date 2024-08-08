@@ -4,7 +4,7 @@
       <div class="flex items-center">
         <img [src]="logoUrl" alt="WVCB Logo" class="h-12 w-auto mr-4" />
       </div>
-      <div class="hidden md:flex items-center space-x-4">
+      <div class="hidden md:flex items-center space-x-6">
         <ng-container *ngFor="let item of navItems">
           <a
             [routerLink]="item.route"
@@ -14,9 +14,46 @@
             {{ item.label }}
           </a>
         </ng-container>
+        <ng-container *ngIf="!currentUser; else userMenu">
+          <a
+            routerLink="/login"
+            class="hover:text-blue-300 transition duration-300"
+          >
+            LOGIN
+          </a>
+        </ng-container>
+        <ng-template #userMenu>
+          <div class="relative group">
+            <button class="hover:text-blue-300 transition duration-300">
+              {{ currentUser?.firstName }}
+            </button>
+            <div
+              class="absolute right-0 w-48 py-2 mt-2 bg-white rounded-md shadow-xl z-20 hidden group-hover:block"
+            >
+              <a
+                routerLink="/profile"
+                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Profile
+              </a>
+              <a
+                routerLink="/members"
+                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Members Area
+              </a>
+              <button
+                (click)="logout()"
+                class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </ng-template>
         <a
           [routerLink]="donateItem.route"
-          class="bg-cta text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition duration-300 ml-4"
+          class="bg-cta text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition duration-300"
         >
           {{ donateItem.label }}
         </a>
@@ -53,6 +90,34 @@
           {{ item.label }}
         </a>
       </ng-container>
+      <ng-container *ngIf="!currentUser; else mobileUserMenu">
+        <a
+          routerLink="/login"
+          class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium"
+        >
+          LOGIN
+        </a>
+      </ng-container>
+      <ng-template #mobileUserMenu>
+        <a
+          routerLink="/profile"
+          class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium"
+        >
+          Profile
+        </a>
+        <a
+          routerLink="/members"
+          class="text-gray-300 hover:bg-gray-700 hover:text-white block px-3 py-2 rounded-md text-base font-medium"
+        >
+          Members Area
+        </a>
+        <button
+          (click)="logout()"
+          class="text-gray-300 hover:bg-gray-700 hover:text-white block w-full text-left px-3 py-2 rounded-md text-base font-medium"
+        >
+          Logout
+        </button>
+      </ng-template>
       <a
         [routerLink]="donateItem.route"
         class="bg-cta text-white block px-3 py-2 rounded-md text-base font-medium"

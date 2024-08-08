@@ -80,13 +80,15 @@ export interface MailingListSubscriber {
 export interface Session {
   id: string;
   userId: string;
-  expiresAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
   userAgent?: string;
   ipAddress?: string;
-  lastActive?: Date;
+  lastActive?: string;
   data?: string;
+  token: string;
+  user: ApplicationUser;
 }
 
 export enum UserRole {
@@ -115,10 +117,11 @@ export enum AttendanceStatus {
   Tentative = 'Tentative',
 }
 
-export interface ApiResponse {
+export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
-  errors: string[];
+  errors?: string[];
+  data?: T;
 }
 
 export interface RegisterModel {
@@ -131,20 +134,6 @@ export interface RegisterModel {
 export interface LoginModel {
   username: string;
   password: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  expiration: string;
-  userId: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  status: string;
-  section?: string;
-  instrument?: string;
-  sessionId: string;
 }
 
 export interface ErrorResponse {

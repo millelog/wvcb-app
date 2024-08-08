@@ -166,7 +166,8 @@ namespace WVCB.API.Models
 
         [Required]
         public DateTime UpdatedAt { get; set; }
-
+        [Required]
+        public string? Token { get; set; }
         public string? UserAgent { get; set; }
 
         public string? IpAddress { get; set; }
@@ -178,6 +179,8 @@ namespace WVCB.API.Models
         [ForeignKey("UserId")]
         public virtual ApplicationUser User { get; set; } = null!;
     }
+
+
 
     public enum UserRole
     {
@@ -246,10 +249,31 @@ namespace WVCB.API.Models
         public string NewPassword { get; set; }
     }
 
-    public class ApiResponse
+    public class ApiResponse<T>
     {
         public bool Success { get; set; }
         public string Message { get; set; }
         public string[] Errors { get; set; }
+        public T Data { get; set; }
+
+        public static ApiResponse<T> SuccessResponse(T data, string message = null)
+        {
+            return new ApiResponse<T>
+            {
+                Success = true,
+                Message = message,
+                Data = data
+            };
+        }
+
+        public static ApiResponse<T> FailureResponse(string message, string[] errors = null)
+        {
+            return new ApiResponse<T>
+            {
+                Success = false,
+                Message = message,
+                Errors = errors
+            };
+        }
     }
 }

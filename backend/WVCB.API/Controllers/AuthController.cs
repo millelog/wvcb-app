@@ -15,6 +15,8 @@ using SendGrid;
 using SendGrid.Helpers.Mail;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Net;
+using WVCB.API.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace WVCB.API.Controllers
 {
@@ -28,6 +30,8 @@ namespace WVCB.API.Controllers
         private readonly ApplicationDbContext _context;
         private readonly ISendGridClient _sendGridClient;
         private readonly IWebHostEnvironment _environment;
+        private readonly AuthService _authService;
+        private readonly IEmailService _emailService;
 
 
         public AuthController(
@@ -36,7 +40,9 @@ namespace WVCB.API.Controllers
             ILogger<AuthController> logger,
             ApplicationDbContext context,
             ISendGridClient sendGridClient,
-            IWebHostEnvironment environment)
+            IWebHostEnvironment environment,
+            AuthService authService,
+            IEmailService emailService)
         {
             _userManager = userManager;
             _configuration = configuration;
@@ -44,84 +50,34 @@ namespace WVCB.API.Controllers
             _context = context;
             _sendGridClient = sendGridClient;
             _environment = environment;
+            _authService = authService;
+            _emailService = emailService;
         }
 
         [HttpPost]
+        [AllowAnonymous]
         [Route("login")]
         public async Task<IActionResult> Login([FromBody] LoginModel model)
         {
-            var identityUser = await _userManager.FindByNameAsync(model.Username);
-            if (identityUser != null && await _userManager.CheckPasswordAsync(identityUser, model.Password))
+            var result = await _authService.LoginAsync(
+                model.Username,
+                model.Password,
+                Request.Headers["User-Agent"].ToString(),
+                HttpContext.Connection.RemoteIpAddress?.ToString()
+            );
+
+            if (!result.Success)
             {
-                if (!await _userManager.IsEmailConfirmedAsync(identityUser))
-                {
-                    return BadRequest("Email is not confirmed. Please check your email for the confirmation link.");
-                }
-
-                var applicationUser = await _context.ApplicationUsers
-                    .Include(u => u.Section)
-                    .FirstOrDefaultAsync(u => u.IdentityUserId == identityUser.Id);
-
-                if (applicationUser == null)
-                {
-                    return BadRequest("No associated application user found.");
-                }
-
-                var userRoles = await _userManager.GetRolesAsync(identityUser);
-
-                var authClaims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, identityUser.UserName),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                    new Claim("ApplicationUserId", applicationUser.Id.ToString()),
-                    new Claim(ClaimTypes.Role, applicationUser.Role.ToString())
-                };
-
-                var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]));
-
-                var token = new JwtSecurityToken(
-                    issuer: _configuration["JWT:ValidIssuer"],
-                    audience: _configuration["JWT:ValidAudience"],
-                    expires: DateTime.Now.AddHours(3),
-                    claims: authClaims,
-                    signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
-                );
-
-                var session = new Session
-                {
-                    UserId = applicationUser.Id,
-                    ExpiresAt = token.ValidTo,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    UserAgent = Request.Headers["User-Agent"].ToString(),
-                    IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-                    LastActive = DateTime.UtcNow,
-                    Data = null
-                };
-
-                _context.Sessions.Add(session);
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    token = new JwtSecurityTokenHandler().WriteToken(token),
-                    expiration = token.ValidTo,
-                    userId = applicationUser.Id,
-                    email = applicationUser.Email,
-                    firstName = applicationUser.FirstName,
-                    lastName = applicationUser.LastName,
-                    role = applicationUser.Role,
-                    status = applicationUser.Status,
-                    section = applicationUser.Section?.Name,
-                    instrument = applicationUser.Instrument,
-                    sessionId = session.Id
-                });
+                return Unauthorized(result);
             }
-            return Unauthorized();
+
+            return Ok(result);
         }
 
         [HttpPost]
         [Route("register")]
+        [AllowAnonymous]
+
         public async Task<IActionResult> Register([FromBody] RegisterModel model)
         {
             try
@@ -188,7 +144,7 @@ namespace WVCB.API.Controllers
                 var frontendUrl = _configuration[$"FrontendUrls:{(_environment.IsDevelopment() ? "Development" : "Production")}"];
                 var confirmationLink = $"{frontendUrl}/confirm-email?userId={identityUser.Id}&token={encodedToken}";
 
-                await SendEmailAsync(identityUser.Email, "Confirm your email", $"Please confirm your account by clicking this link: <a href='{confirmationLink}'>Confirm Email</a>");
+                await _emailService.SendEmailAsync(identityUser.Email, "Confirm your email", $"Please confirm your account by clicking this link: <a href='{confirmationLink}'>Confirm Email</a>");
 
                 return Ok(new { Status = "Success", Message = "User account created successfully! Please check your email to confirm your account." });
             }
@@ -200,6 +156,7 @@ namespace WVCB.API.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         [Route("confirm-email")]
         public async Task<IActionResult> ConfirmEmail(string userId, string token)
         {
@@ -218,6 +175,7 @@ namespace WVCB.API.Controllers
         }
 
         [HttpPost]
+        [AllowAnonymous]
         [Route("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordModel model)
         {
@@ -231,12 +189,13 @@ namespace WVCB.API.Controllers
             var frontendUrl = _configuration[$"FrontendUrls:{(_environment.IsDevelopment() ? "Development" : "Production")}"];
             var resetLink = $"{frontendUrl}/reset-password?email={WebUtility.UrlEncode(model.Email)}&token={encodedToken}";
 
-            await SendEmailAsync(user.Email, "Reset your password", $"Please reset your password by clicking this link: <a href='{resetLink}'>Reset Password</a>");
+            await _emailService.SendEmailAsync(user.Email, "Reset your password", $"Please reset your password by clicking this link: <a href='{resetLink}'>Reset Password</a>");
 
             return Ok("If your email is registered and confirmed, you will receive a password reset link shortly.");
         }
 
         [HttpPost]
+        [AllowAnonymous]
         [Route("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordModel model)
         {
@@ -265,14 +224,24 @@ namespace WVCB.API.Controllers
             return Ok(new { Status = "Success", Message = "Logged out successfully" });
         }
 
-        private async Task SendEmailAsync(string email, string subject, string message)
+        [HttpGet]
+        [Authorize]
+        [Route("profile")]
+        public async Task<IActionResult> GetProfile()
         {
-            var from = new EmailAddress(_configuration["SendGrid:FromEmail"], _configuration["SendGrid:FromName"]);
-            var to = new EmailAddress(email);
-            var plainTextContent = message;
-            var htmlContent = message;
-            var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
-            await _sendGridClient.SendEmailAsync(msg);
+            var user = await _authService.GetUserProfileAsync(User);
+            if (user == null)
+            {
+                return NotFound("User profile not found.");
+            }
+
+            var session = new Session
+            {
+                User = user,
+                // You might want to fill in other session details here if needed
+            };
+
+            return Ok(session);
         }
     }
 

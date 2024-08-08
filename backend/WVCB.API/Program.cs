@@ -9,6 +9,7 @@ using WVCB.API.Services;
 using WVCB.API.Utils;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using SendGrid;
+using Microsoft.AspNetCore.Diagnostics;
 
 // Load environment variables at the very beginning
 EnvFileLoader.LoadEnvFile(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
@@ -81,22 +82,11 @@ builder.Services.AddHealthChecks()
 
 builder.Services.AddControllers();
 
-// Add CORS policy
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowSpecificOrigins", policy =>
-    {
-        policy.AllowAnyOrigin()
-             .AllowAnyMethod()
-             .AllowAnyHeader();
-    });
-});
-
 // Add ApplicationUser related services
 builder.Services.AddScoped<ApplicationUserManager>();
 builder.Services.AddSingleton<ISendGridClient>(new SendGridClient(Environment.GetEnvironmentVariable("SENDGRID_API_KEY")));
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 
 // Add Swagger services
@@ -130,7 +120,32 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// Add CORS policy
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+
+// Add CORS policy
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigins", policy =>
+    {
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
+        else
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
+    });
+});
+
+
 var app = builder.Build();
+
 
 // Seed roles
 using (var scope = app.Services.CreateScope())
@@ -147,12 +162,29 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Global exception handling
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+        var exception = exceptionHandlerPathFeature?.Error;
+        await context.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred." });
+    });
+});
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "WVCB API v1"));
+}
+else
+{
+    app.UseHsts(); // Enforce HTTPS in production
 }
 
 app.UseHttpsRedirection();

@@ -1,4 +1,3 @@
-// register.component.ts
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
@@ -9,7 +8,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AuthResponse, RegisterModel } from '../../models/models';
+import { RegisterModel } from '../../models/models';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -21,7 +20,9 @@ import { AuthService } from '../../services/auth.service';
 export class RegisterComponent implements OnInit {
   registerForm: FormGroup;
   errorMessage: string = '';
+  successMessage: string = '';
   errorList: string[] = [];
+  isLoading: boolean = false;
 
   constructor(
     private fb: FormBuilder,
@@ -67,13 +68,12 @@ export class RegisterComponent implements OnInit {
 
   private handleErrorResponse(error: HttpErrorResponse) {
     console.error('Registration error', error);
+    this.isLoading = false;
     if (error.status === 0) {
       this.errorMessage =
         'Unable to connect to the server. Please check your internet connection and try again.';
-    } else if (error.status === 500 && error.error) {
-      this.errorMessage =
-        error.error.message ||
-        'An unexpected error occurred during registration.';
+    } else if (error.error && error.error.message) {
+      this.errorMessage = error.error.message;
       this.errorList = error.error.errors || [];
     } else {
       this.errorMessage =
@@ -83,6 +83,11 @@ export class RegisterComponent implements OnInit {
 
   onSubmit() {
     if (this.registerForm.valid) {
+      this.isLoading = true;
+      this.errorMessage = '';
+      this.successMessage = '';
+      this.errorList = [];
+
       const formValue = this.registerForm.value;
       const registrationData: RegisterModel = {
         email: formValue.email,
@@ -92,25 +97,17 @@ export class RegisterComponent implements OnInit {
       };
 
       this.authService.register(registrationData).subscribe({
-        next: (response: AuthResponse) => {
-          console.log('Registration successful', response);
-          // Now log the user in
-          this.authService
-            .login({
-              username: registrationData.email,
-              password: registrationData.password,
-            })
-            .subscribe({
-              next: (loginResponse: AuthResponse) => {
-                console.log('Login successful', loginResponse);
-                // Redirect to home page or dashboard
-                this.router.navigate(['/home']);
-              },
-              error: (loginError: HttpErrorResponse) => {
-                console.error('Login error', loginError);
-                this.handleErrorResponse(loginError);
-              },
-            });
+        next: ({ message, session }) => {
+          console.log('Registration response', message, session);
+          this.isLoading = false;
+          if (session) {
+            // User is automatically logged in
+            this.successMessage = 'Registration successful. Redirecting...';
+            setTimeout(() => this.router.navigate(['/home']), 2000);
+          } else {
+            // Registration successful but email confirmation required
+            this.successMessage = message;
+          }
         },
         error: (error: HttpErrorResponse) => {
           this.handleErrorResponse(error);

@@ -9,7 +9,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthResponse, LoginModel } from '../../models/models';
+import { LoginModel, Session } from '../../models/models';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -53,7 +53,7 @@ export class LoginComponent implements OnInit {
       const loginData: LoginModel = this.loginForm.value;
 
       this.authService.login(loginData).subscribe({
-        next: (response: AuthResponse) => {
+        next: (response: Session) => {
           console.log('Login successful', response);
           this.router.navigate(['/home']);
         },
