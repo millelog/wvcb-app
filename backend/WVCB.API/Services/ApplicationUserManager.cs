@@ -111,5 +111,6 @@ namespace WVCB.API.Services
             var user = await FindByIdAsync(userId);
             return user != null && user.Status == UserStatus.Active;
         }
+
     }
 }

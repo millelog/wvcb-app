@@ -11,6 +11,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using WVCB.API.Data;
 using WVCB.API.Models;
+using SendGrid;
+using SendGrid.Helpers.Mail;
+using Microsoft.AspNetCore.WebUtilities;
+using System.Net;
 
 namespace WVCB.API.Controllers
 {
@@ -22,17 +26,24 @@ namespace WVCB.API.Controllers
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
         private readonly ApplicationDbContext _context;
+        private readonly ISendGridClient _sendGridClient;
+        private readonly IWebHostEnvironment _environment;
+
 
         public AuthController(
             UserManager<IdentityUser<Guid>> userManager,
             IConfiguration configuration,
             ILogger<AuthController> logger,
-            ApplicationDbContext context)
+            ApplicationDbContext context,
+            ISendGridClient sendGridClient,
+            IWebHostEnvironment environment)
         {
             _userManager = userManager;
             _configuration = configuration;
             _logger = logger;
             _context = context;
+            _sendGridClient = sendGridClient;
+            _environment = environment;
         }
 
         [HttpPost]
@@ -42,6 +53,11 @@ namespace WVCB.API.Controllers
             var identityUser = await _userManager.FindByNameAsync(model.Username);
             if (identityUser != null && await _userManager.CheckPasswordAsync(identityUser, model.Password))
             {
+                if (!await _userManager.IsEmailConfirmedAsync(identityUser))
+                {
+                    return BadRequest("Email is not confirmed. Please check your email for the confirmation link.");
+                }
+
                 var applicationUser = await _context.ApplicationUsers
                     .Include(u => u.Section)
                     .FirstOrDefaultAsync(u => u.IdentityUserId == identityUser.Id);
@@ -71,7 +87,6 @@ namespace WVCB.API.Controllers
                     signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
                 );
 
-                // Create a new session
                 var session = new Session
                 {
                     UserId = applicationUser.Id,
@@ -82,7 +97,6 @@ namespace WVCB.API.Controllers
                     IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
                     LastActive = DateTime.UtcNow,
                     Data = null
-
                 };
 
                 _context.Sessions.Add(session);
@@ -112,21 +126,18 @@ namespace WVCB.API.Controllers
         {
             try
             {
-                // Check if an IdentityUser with this email already exists
                 var identityUser = await _userManager.FindByNameAsync(model.Email);
                 if (identityUser != null)
                     return StatusCode(StatusCodes.Status400BadRequest, new { Status = "Error", Message = "User account already exists!" });
 
-                // Check if an ApplicationUser with this email already exists
                 var applicationUser = await _context.ApplicationUsers
                     .FirstOrDefaultAsync(u => u.Email == model.Email);
 
                 if (applicationUser == null)
                 {
-                    // If no ApplicationUser exists, create a new one
                     applicationUser = new ApplicationUser
                     {
-                        Id = Guid.NewGuid(), // Explicitly set the Id
+                        Id = Guid.NewGuid(),
                         Email = model.Email,
                         FirstName = model.FirstName,
                         LastName = model.LastName,
@@ -142,7 +153,6 @@ namespace WVCB.API.Controllers
                 }
                 else
                 {
-                    // If ApplicationUser exists, update FirstName and LastName if they're different
                     if (applicationUser.FirstName != model.FirstName || applicationUser.LastName != model.LastName)
                     {
                         applicationUser.FirstName = model.FirstName;
@@ -152,10 +162,9 @@ namespace WVCB.API.Controllers
                     }
                 }
 
-                // Create a new IdentityUser
                 identityUser = new IdentityUser<Guid>
                 {
-                    Id = Guid.NewGuid(), // Explicitly set the Id
+                    Id = Guid.NewGuid(),
                     UserName = model.Email,
                     Email = model.Email,
                 };
@@ -167,21 +176,79 @@ namespace WVCB.API.Controllers
                     return StatusCode(StatusCodes.Status500InternalServerError, new { Status = "Error", Message = "User account creation failed!", Errors = errors });
                 }
 
-                // Associate the IdentityUser with the ApplicationUser
                 applicationUser.IdentityUserId = identityUser.Id;
                 await _context.SaveChangesAsync();
 
-                // Assign the Member role to the new user
                 await _userManager.AddToRoleAsync(identityUser, UserRole.Member.ToString());
 
-                return Ok(new { Status = "Success", Message = "User account created successfully!" });
+                // Generate email confirmation token and send email
+                var token = await _userManager.GenerateEmailConfirmationTokenAsync(identityUser);
+                var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+                var frontendUrl = _configuration[$"FrontendUrls:{(_environment.IsDevelopment() ? "Development" : "Production")}"];
+                var confirmationLink = $"{frontendUrl}/confirm-email?userId={identityUser.Id}&token={encodedToken}";
+
+                await SendEmailAsync(identityUser.Email, "Confirm your email", $"Please confirm your account by clicking this link: <a href='{confirmationLink}'>Confirm Email</a>");
+
+                return Ok(new { Status = "Success", Message = "User account created successfully! Please check your email to confirm your account." });
             }
             catch (Exception ex)
             {
-                // Log the exception
                 _logger.LogError(ex, "An error occurred during user registration");
                 return StatusCode(StatusCodes.Status500InternalServerError, new { Status = "Error", Message = "An unexpected error occurred during registration.", Error = ex.Message });
             }
+        }
+
+        [HttpGet]
+        [Route("confirm-email")]
+        public async Task<IActionResult> ConfirmEmail(string userId, string token)
+        {
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
+                return BadRequest("Invalid email confirmation token");
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return BadRequest("Unable to find user");
+
+            var result = await _userManager.ConfirmEmailAsync(user, token);
+            if (result.Succeeded)
+                return Ok("Thank you for confirming your email. You can now log in to your account.");
+            else
+                return BadRequest("Error confirming your email.");
+        }
+
+        [HttpPost]
+        [Route("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordModel model)
+        {
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null || !(await _userManager.IsEmailConfirmedAsync(user)))
+                return Ok("If your email is registered and confirmed, you will receive a password reset link shortly.");
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+            var frontendUrl = _configuration[$"FrontendUrls:{(_environment.IsDevelopment() ? "Development" : "Production")}"];
+            var resetLink = $"{frontendUrl}/reset-password?email={WebUtility.UrlEncode(model.Email)}&token={encodedToken}";
+
+            await SendEmailAsync(user.Email, "Reset your password", $"Please reset your password by clicking this link: <a href='{resetLink}'>Reset Password</a>");
+
+            return Ok("If your email is registered and confirmed, you will receive a password reset link shortly.");
+        }
+
+        [HttpPost]
+        [Route("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordModel model)
+        {
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+                return BadRequest(new { message = "Invalid reset attempt." });
+
+            var result = await _userManager.ResetPasswordAsync(user, model.Token, model.NewPassword);
+            if (result.Succeeded)
+                return Ok(new { message = "Your password has been reset successfully." });
+            else
+                return BadRequest(new { message = "Error resetting your password. Please try again.", errors = result.Errors.Select(e => e.Description) });
         }
 
         [HttpPost]
@@ -197,5 +264,17 @@ namespace WVCB.API.Controllers
 
             return Ok(new { Status = "Success", Message = "Logged out successfully" });
         }
+
+        private async Task SendEmailAsync(string email, string subject, string message)
+        {
+            var from = new EmailAddress(_configuration["SendGrid:FromEmail"], _configuration["SendGrid:FromName"]);
+            var to = new EmailAddress(email);
+            var plainTextContent = message;
+            var htmlContent = message;
+            var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
+            await _sendGridClient.SendEmailAsync(msg);
+        }
     }
+
+
 }

@@ -11,5 +11,5 @@ import { NavbarComponent } from './components/navbar/navbar.component';
   styleUrls: ['./app.component.scss'],
 })
 export class AppComponent {
-  title = 'Your App Name';
+  title = 'Willamette Valley Concert Band';
 }

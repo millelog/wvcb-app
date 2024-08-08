@@ -8,6 +8,7 @@ using WVCB.API.Data;
 using WVCB.API.Services;
 using WVCB.API.Utils;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using SendGrid;
 
 // Load environment variables at the very beginning
 EnvFileLoader.LoadEnvFile(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
@@ -95,6 +96,8 @@ builder.Services.AddCors(options =>
 
 // Add ApplicationUser related services
 builder.Services.AddScoped<ApplicationUserManager>();
+builder.Services.AddSingleton<ISendGridClient>(new SendGridClient(Environment.GetEnvironmentVariable("SENDGRID_API_KEY")));
+
 
 // Add Swagger services
 builder.Services.AddSwaggerGen(c =>

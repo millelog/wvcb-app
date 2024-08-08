@@ -1,8 +1,8 @@
 // auth.service.ts
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable, throwError } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { AuthResponse, LoginModel } from '../models/auth.model';
 
@@ -39,5 +39,52 @@ export class AuthService {
 
   getToken(): string | null {
     return localStorage.getItem('token');
+  }
+  forgotPassword(email: string): Observable<string> {
+    return this.http
+      .post(
+        `${this.apiUrl}/auth/forgot-password`,
+        { email },
+        { responseType: 'text' }
+      )
+      .pipe(catchError(this.handleError));
+  }
+
+  resetPassword(
+    email: string,
+    token: string,
+    newPassword: string
+  ): Observable<any> {
+    return this.http.post(`${this.apiUrl}/auth/reset-password`, {
+      email,
+      token,
+      newPassword,
+    });
+  }
+
+  confirmEmail(userId: string, token: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/auth/confirm-email`, {
+      params: { userId, token },
+    });
+  }
+
+  private handleError(error: HttpErrorResponse) {
+    let errorMessage = 'An unknown error occurred!';
+    if (error.error instanceof ErrorEvent) {
+      // Client-side error
+      errorMessage = error.error.message;
+    } else if (typeof error.error === 'string') {
+      // Server-side error returning a string
+      errorMessage = error.error;
+    } else if (error.status === 0) {
+      errorMessage =
+        'Unable to connect to the server. Please check your internet connection.';
+    } else if (error.status >= 400 && error.status < 500) {
+      errorMessage =
+        'An error occurred while processing your request. Please try again.';
+    } else if (error.status >= 500) {
+      errorMessage = 'A server error occurred. Please try again later.';
+    }
+    return throwError(() => new Error(errorMessage));
   }
 }
