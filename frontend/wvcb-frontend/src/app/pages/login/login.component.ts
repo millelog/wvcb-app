@@ -9,7 +9,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthResponse, LoginModel } from '../../models/auth.model';
+import { AuthResponse, LoginModel } from '../../models/models';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
