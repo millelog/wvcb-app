@@ -253,7 +253,7 @@ namespace WVCB.API.Models
     {
         public bool Success { get; set; }
         public string Message { get; set; }
-        public string[] Errors { get; set; }
+        public List<string> Errors { get; set; } = new List<string>();
         public T Data { get; set; }
 
         public static ApiResponse<T> SuccessResponse(T data, string message = null)
@@ -266,13 +266,13 @@ namespace WVCB.API.Models
             };
         }
 
-        public static ApiResponse<T> FailureResponse(string message, string[] errors = null)
+        public static ApiResponse<T> FailureResponse(string message, List<string> errors = null)
         {
             return new ApiResponse<T>
             {
                 Success = false,
                 Message = message,
-                Errors = errors
+                Errors = errors ?? new List<string>()
             };
         }
     }

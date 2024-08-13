@@ -1,6 +1,4 @@
-// login.component.ts
 import { CommonModule } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import {
   FormBuilder,
@@ -9,7 +7,12 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router } from '@angular/router';
-import { LoginModel, Session } from '../../models/models';
+import {
+  ApiResponse,
+  ErrorResponse,
+  LoginModel,
+  Session,
+} from '../../models/models';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -20,7 +23,8 @@ import { AuthService } from '../../services/auth.service';
 })
 export class LoginComponent implements OnInit {
   loginForm: FormGroup;
-  errorMessage: string = '';
+  error: ErrorResponse | null = null;
+  isLoading: boolean = false;
 
   constructor(
     private fb: FormBuilder,
@@ -35,30 +39,27 @@ export class LoginComponent implements OnInit {
 
   ngOnInit() {}
 
-  private handleErrorResponse(error: HttpErrorResponse) {
-    console.error('Login error', error);
-    if (error.status === 0) {
-      this.errorMessage =
-        'Unable to connect to the server. Please check your internet connection and try again.';
-    } else if (error.status === 401) {
-      this.errorMessage = 'Invalid username or password. Please try again.';
-    } else {
-      this.errorMessage =
-        'An unexpected error occurred. Please try again later.';
-    }
-  }
-
   onSubmit() {
     if (this.loginForm.valid) {
+      this.isLoading = true;
+      this.error = null;
       const loginData: LoginModel = this.loginForm.value;
 
       this.authService.login(loginData).subscribe({
-        next: (response: Session) => {
-          console.log('Login successful', response);
-          this.router.navigate(['/home']);
+        next: (response: ApiResponse<Session> | ErrorResponse) => {
+          this.isLoading = false;
+          if (response.success && 'data' in response) {
+            console.log('Login successful', response.data);
+            this.router.navigate(['/members']);
+          } else {
+            this.error = response as ErrorResponse;
+            console.error('Login failed', this.error);
+          }
         },
-        error: (error: HttpErrorResponse) => {
-          this.handleErrorResponse(error);
+        error: (errorResponse: ErrorResponse) => {
+          this.isLoading = false;
+          this.error = errorResponse;
+          console.error('Login error', this.error);
         },
       });
     }

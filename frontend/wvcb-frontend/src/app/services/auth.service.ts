@@ -2,11 +2,12 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
-import { catchError, map, tap } from 'rxjs/operators';
+import { catchError, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   ApiResponse,
   ApplicationUser,
+  ErrorResponse,
   LoginModel,
   RegisterModel,
   Session,
@@ -17,11 +18,11 @@ import {
 })
 export class AuthService {
   private apiUrl = environment.apiUrl;
+  private isBrowser: boolean;
   private currentUserSubject = new BehaviorSubject<ApplicationUser | null>(
     null
   );
   currentUser$ = this.currentUserSubject.asObservable();
-  private isBrowser: boolean;
 
   constructor(
     private http: HttpClient,
@@ -31,48 +32,150 @@ export class AuthService {
     this.checkToken();
   }
 
-  private checkToken() {
-    const token = this.getToken();
-    if (token) {
-      this.getUserProfile().subscribe();
-    }
-  }
-
-  login(credentials: LoginModel): Observable<Session> {
+  login(
+    credentials: LoginModel
+  ): Observable<ApiResponse<Session> | ErrorResponse> {
     return this.http
       .post<ApiResponse<Session>>(`${this.apiUrl}/auth/login`, credentials)
       .pipe(
-        map((response) => {
+        tap((response) => {
           if (response.success && response.data) {
             this.setToken(response.data.token);
             this.currentUserSubject.next(response.data.user);
-            return response.data;
-          } else {
-            throw new Error(response.message || 'Login failed');
           }
         }),
         catchError(this.handleError)
       );
   }
 
-  logout(): Observable<any> {
-    return this.http.post(`${this.apiUrl}/auth/logout`, {}).pipe(
-      tap(() => {
-        this.removeToken();
-        this.currentUserSubject.next(null);
-      }),
-      catchError(this.handleError)
+  logout(): Observable<ApiResponse<boolean> | ErrorResponse> {
+    return this.http
+      .post<ApiResponse<boolean>>(`${this.apiUrl}/auth/logout`, {})
+      .pipe(
+        tap((response) => {
+          if (response.success) {
+            this.removeToken();
+            this.currentUserSubject.next(null);
+          }
+        }),
+        catchError(this.handleError)
+      );
+  }
+
+  register(
+    userData: RegisterModel
+  ): Observable<ApiResponse<Session> | ErrorResponse> {
+    return this.http
+      .post<ApiResponse<Session>>(`${this.apiUrl}/auth/register`, userData)
+      .pipe(
+        tap((response) => {
+          if (response.success && response.data) {
+            this.setToken(response.data.token);
+            this.currentUserSubject.next(response.data.user);
+          }
+        }),
+        catchError(this.handleError)
+      );
+  }
+
+  confirmEmail(
+    userId: string,
+    token: string
+  ): Observable<ApiResponse<string> | ErrorResponse> {
+    return this.http
+      .get<ApiResponse<string>>(`${this.apiUrl}/auth/confirm-email`, {
+        params: { userId, token },
+      })
+      .pipe(catchError(this.handleError));
+  }
+
+  getUserProfile(): Observable<ApiResponse<ApplicationUser> | ErrorResponse> {
+    return this.http
+      .get<ApiResponse<ApplicationUser>>(`${this.apiUrl}/auth/profile`)
+      .pipe(
+        tap((response) => {
+          if (response.success && response.data) {
+            this.currentUserSubject.next(response.data);
+          }
+        }),
+        catchError(this.handleError)
+      );
+  }
+
+  forgotPassword(
+    email: string
+  ): Observable<ApiResponse<string> | ErrorResponse> {
+    return this.http
+      .post<ApiResponse<string>>(`${this.apiUrl}/auth/forgot-password`, {
+        email,
+      })
+      .pipe(catchError(this.handleError));
+  }
+
+  resetPassword(
+    email: string,
+    token: string,
+    newPassword: string
+  ): Observable<ApiResponse<string> | ErrorResponse> {
+    return this.http
+      .post<ApiResponse<string>>(`${this.apiUrl}/auth/reset-password`, {
+        email,
+        token,
+        newPassword,
+      })
+      .pipe(catchError(this.handleError));
+  }
+
+  private handleError = (error: HttpErrorResponse): Observable<ErrorResponse> => {
+    let errorResponse: ErrorResponse = {
+      success: false,
+      message: 'An unknown error occurred!',
+      errors: [],
+    };
+
+    if (error.error instanceof ErrorEvent) {
+      // Client-side error
+      errorResponse.message = error.error.message;
+    } else if (this.isApiResponse(error.error)) {
+      // Server returned an ApiResponse
+      errorResponse = {
+        success: false,
+        message: error.error.message,
+        errors: error.error.errors || [],
+      };
+    } else if (typeof error.error === 'object' && error.error !== null) {
+      // Server returned an error object, but not in ApiResponse format
+      errorResponse.message = error.error.message || errorResponse.message;
+      errorResponse.errors = Array.isArray(error.error.errors)
+        ? error.error.errors
+        : [];
+    } else if (error.status === 0) {
+      errorResponse.message =
+        'Unable to connect to the server. Please check your internet connection.';
+    } else if (error.status >= 400 && error.status < 500) {
+      errorResponse.message =
+        'An error occurred while processing your request. Please try again.';
+    } else if (error.status >= 500) {
+      errorResponse.message =
+        'A server error occurred. Please try again later.';
+    }
+
+    return throwError(() => errorResponse);
+  }
+
+  private isApiResponse(obj: any): obj is ApiResponse {
+    return (
+      obj && typeof obj === 'object' && 'success' in obj && 'message' in obj
     );
   }
 
-  getUserProfile(): Observable<ApplicationUser> {
-    return this.http.get<Session>(`${this.apiUrl}/auth/profile`).pipe(
-      map((session) => session.user),
-      tap((user) => {
-        this.currentUserSubject.next(user);
-      }),
-      catchError(this.handleError)
-    );
+  private checkToken() {
+    if (this.isBrowser) {
+      const token = this.getToken();
+      if (token) {
+        this.getUserProfile().subscribe();
+      }
+    }
   }
 
   getToken(): string | null {
@@ -92,82 +195,5 @@ export class AuthService {
     if (this.isBrowser) {
       localStorage.removeItem('token');
     }
-  }
-
-  register(
-    userData: RegisterModel
-  ): Observable<{ message: string; session: Session }> {
-    return this.http
-      .post<{ status: string; message: string; session: Session }>(
-        `${this.apiUrl}/auth/register`,
-        userData
-      )
-      .pipe(
-        map((response) => ({
-          message: response.message,
-          session: response.session,
-        })),
-        tap(({ session }) => {
-          if (session) {
-            this.setToken(session.token);
-            this.currentUserSubject.next(session.user);
-          }
-        }),
-        catchError(this.handleError)
-      );
-  }
-
-  forgotPassword(email: string): Observable<string> {
-    return this.http
-      .post(
-        `${this.apiUrl}/auth/forgot-password`,
-        { email },
-        { responseType: 'text' }
-      )
-      .pipe(catchError(this.handleError));
-  }
-
-  resetPassword(
-    email: string,
-    token: string,
-    newPassword: string
-  ): Observable<any> {
-    return this.http
-      .post(`${this.apiUrl}/auth/reset-password`, {
-        email,
-        token,
-        newPassword,
-      })
-      .pipe(catchError(this.handleError));
-  }
-
-  confirmEmail(userId: string, token: string): Observable<any> {
-    return this.http
-      .get(`${this.apiUrl}/auth/confirm-email`, {
-        params: { userId, token },
-      })
-      .pipe(catchError(this.handleError));
-  }
-
-  private handleError(error: HttpErrorResponse) {
-    let errorMessage = 'An unknown error occurred!';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (error.error instanceof ErrorEvent) {
-      errorMessage = error.error.message;
-    } else if (typeof error.error === 'string') {
-      errorMessage = error.error;
-    } else if (error.error && typeof error.error.message === 'string') {
-      errorMessage = error.error.message;
-    } else if (error.status === 0) {
-      errorMessage =
-        'Unable to connect to the server. Please check your internet connection.';
-    } else if (error.status >= 400 && error.status < 500) {
-      errorMessage =
-        'An error occurred while processing your request. Please try again.';
-    } else if (error.status >= 500) {
-      errorMessage = 'A server error occurred. Please try again later.';
-    }
-    return throwError(() => new Error(errorMessage));
   }
 }

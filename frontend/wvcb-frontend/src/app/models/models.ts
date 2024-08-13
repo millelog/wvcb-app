@@ -124,6 +124,10 @@ export interface ApiResponse<T = any> {
   data?: T;
 }
 
+export interface ErrorResponse extends ApiResponse<never> {
+  success: false;
+  errors?: string[];
+}
 export interface RegisterModel {
   email: string;
   password: string;
@@ -134,10 +138,4 @@ export interface RegisterModel {
 export interface LoginModel {
   username: string;
   password: string;
-}
-
-export interface ErrorResponse {
-  status: string;
-  message: string;
-  errors?: string[];
 }

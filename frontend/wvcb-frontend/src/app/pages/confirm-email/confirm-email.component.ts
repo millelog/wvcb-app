@@ -2,6 +2,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { ApiResponse, ErrorResponse } from '../../models/models';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -15,6 +16,7 @@ export class ConfirmEmailComponent implements OnInit {
   message: string = '';
   isLoading: boolean = true;
   isSuccess: boolean = false;
+  error: ErrorResponse | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -40,17 +42,24 @@ export class ConfirmEmailComponent implements OnInit {
     const decodedToken = atob(token);
 
     this.authService.confirmEmail(userId, decodedToken).subscribe({
-      next: (response) => {
-        this.setSuccessState(
-          'Your email has been confirmed successfully. You can now log in to your account.'
-        );
-        setTimeout(() => this.router.navigate(['/login']), 3000);
+      next: (response: ApiResponse<string>) => {
+        if (response.success) {
+          this.setSuccessState(
+            response.message ||
+              'Your email has been confirmed successfully. You can now log in to your account.'
+          );
+          setTimeout(() => this.router.navigate(['/login']), 3000);
+        } else {
+          this.setErrorState(response.message || 'Failed to confirm email.');
+        }
       },
-      error: (error) => {
+      error: (errorResponse: ErrorResponse) => {
+        this.error = errorResponse;
         this.setErrorState(
-          'An error occurred while confirming your email. Please try again or contact support.'
+          errorResponse.message ||
+            'An error occurred while confirming your email. Please try again or contact support.'
         );
-        console.error('Email confirmation error', error);
+        console.error('Email confirmation error', errorResponse);
       },
       complete: () => {
         this.isLoading = false;
@@ -62,6 +71,7 @@ export class ConfirmEmailComponent implements OnInit {
     this.isSuccess = true;
     this.message = message;
     this.isLoading = false;
+    this.error = null;
   }
 
   private setErrorState(message: string) {

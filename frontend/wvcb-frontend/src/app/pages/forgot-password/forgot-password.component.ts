@@ -7,6 +7,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import { ApiResponse, ErrorResponse } from '../../models/models';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -20,6 +21,7 @@ export class ForgotPasswordComponent {
   message: string = '';
   isLoading: boolean = false;
   isSuccess: boolean = false;
+  error: ErrorResponse | null = null;
 
   constructor(private fb: FormBuilder, private authService: AuthService) {
     this.forgotPasswordForm = this.fb.group({
@@ -31,16 +33,18 @@ export class ForgotPasswordComponent {
     if (this.forgotPasswordForm.valid) {
       this.isLoading = true;
       this.message = '';
+      this.error = null;
       const email = this.forgotPasswordForm.get('email')?.value;
 
       this.authService.forgotPassword(email).subscribe({
-        next: (response) => {
-          this.isSuccess = true;
-          this.message = response;
+        next: (response: ApiResponse<string>) => {
+          this.isSuccess = response.success;
+          this.message = response.message;
         },
-        error: (error) => {
+        error: (errorResponse: ErrorResponse) => {
           this.isSuccess = false;
-          this.message = error.message;
+          this.error = errorResponse;
+          this.message = errorResponse.message;
         },
         complete: () => {
           this.isLoading = false;

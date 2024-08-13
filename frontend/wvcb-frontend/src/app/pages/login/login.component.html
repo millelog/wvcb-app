@@ -1,4 +1,3 @@
-<!-- login.component.html -->
 <div
   class="min-h-screen bg-offwhite flex justify-center py-12 px-4 sm:px-6 lg:px-8"
 >
@@ -44,21 +43,29 @@
       </div>
 
       <div
-        *ngIf="errorMessage"
+        *ngIf="error"
         class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4"
         role="alert"
       >
         <p class="font-bold">Error</p>
-        <p>{{ errorMessage }}</p>
+        <p>{{ error.message }}</p>
+        <ul
+          *ngIf="error.errors && error.errors.length > 0"
+          class="mt-2 list-disc list-inside"
+        >
+          <li *ngFor="let errorMsg of error.errors" class="text-sm">
+            {{ errorMsg }}
+          </li>
+        </ul>
       </div>
 
       <div>
         <button
           type="submit"
-          [disabled]="!loginForm.valid"
+          [disabled]="!loginForm.valid || isLoading"
           class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-cta hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-custom-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Log in
+          {{ isLoading ? "Logging in..." : "Log in" }}
         </button>
       </div>
     </form>
@@ -68,6 +75,12 @@
         class="font-medium text-custom-blue-600 hover:text-custom-blue-500"
       >
         Forgot your password?
+      </a>
+      <a
+        href="/register"
+        class="font-medium text-custom-blue-600 hover:text-custom-blue-500"
+      >
+        Don't have an account? Register
       </a>
     </div>
   </div>

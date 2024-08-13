@@ -1,5 +1,4 @@
 import { CommonModule } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import {
   FormBuilder,
@@ -8,7 +7,12 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { RegisterModel } from '../../models/models';
+import {
+  ApiResponse,
+  ErrorResponse,
+  RegisterModel,
+  Session,
+} from '../../models/models';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -19,9 +23,8 @@ import { AuthService } from '../../services/auth.service';
 })
 export class RegisterComponent implements OnInit {
   registerForm: FormGroup;
-  errorMessage: string = '';
+  error: ErrorResponse | null = null;
   successMessage: string = '';
-  errorList: string[] = [];
   isLoading: boolean = false;
 
   constructor(
@@ -66,27 +69,11 @@ export class RegisterComponent implements OnInit {
       : { passwordMismatch: true };
   }
 
-  private handleErrorResponse(error: HttpErrorResponse) {
-    console.error('Registration error', error);
-    this.isLoading = false;
-    if (error.status === 0) {
-      this.errorMessage =
-        'Unable to connect to the server. Please check your internet connection and try again.';
-    } else if (error.error && error.error.message) {
-      this.errorMessage = error.error.message;
-      this.errorList = error.error.errors || [];
-    } else {
-      this.errorMessage =
-        'An unexpected error occurred. Please try again later.';
-    }
-  }
-
   onSubmit() {
     if (this.registerForm.valid) {
       this.isLoading = true;
-      this.errorMessage = '';
+      this.error = null;
       this.successMessage = '';
-      this.errorList = [];
 
       const formValue = this.registerForm.value;
       const registrationData: RegisterModel = {
@@ -97,20 +84,21 @@ export class RegisterComponent implements OnInit {
       };
 
       this.authService.register(registrationData).subscribe({
-        next: ({ message, session }) => {
-          console.log('Registration response', message, session);
+        next: (response: ApiResponse<Session> | ErrorResponse) => {
           this.isLoading = false;
-          if (session) {
-            // User is automatically logged in
+          if (response.success && 'data' in response) {
+            console.log('Registration successful', response.data);
             this.successMessage = 'Registration successful. Redirecting...';
-            setTimeout(() => this.router.navigate(['/home']), 2000);
+            setTimeout(() => this.router.navigate(['/members']), 2000);
           } else {
-            // Registration successful but email confirmation required
-            this.successMessage = message;
+            this.error = response as ErrorResponse;
+            console.error('Registration error', this.error);
           }
         },
-        error: (error: HttpErrorResponse) => {
-          this.handleErrorResponse(error);
+        error: (errorResponse: ErrorResponse) => {
+          this.isLoading = false;
+          this.error = errorResponse;
+          console.error('Registration error', this.error);
         },
       });
     }

@@ -10,6 +10,9 @@ using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Net;
+
 namespace WVCB.API.Services
 {
     public class AuthService
@@ -21,7 +24,6 @@ namespace WVCB.API.Services
         private readonly ILogger<AuthService> _logger;
         private readonly IWebHostEnvironment _environment;
         private readonly IEmailService _emailService;
-
 
         public AuthService(UserManager<IdentityUser<Guid>> userManager,
                            ApplicationDbContext context,
@@ -85,36 +87,13 @@ namespace WVCB.API.Services
             return ApiResponse<Session>.SuccessResponse(session, "Login successful.");
         }
 
-        private async Task<JwtSecurityToken> GenerateJwtTokenAsync(IdentityUser<Guid> identityUser, ApplicationUser applicationUser)
-        {
-            var userRoles = await _userManager.GetRolesAsync(identityUser);
-
-            var authClaims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, identityUser.UserName),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim("ApplicationUserId", applicationUser.Id.ToString()),
-                new Claim(ClaimTypes.Role, applicationUser.Role.ToString())
-            };
-
-            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]));
-
-            return new JwtSecurityToken(
-                issuer: _configuration["JWT:ValidIssuer"],
-                audience: _configuration["JWT:ValidAudience"],
-                expires: DateTime.Now.AddHours(3),
-                claims: authClaims,
-                signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
-            );
-        }
-
         public async Task<ApiResponse<Session>> RegisterAsync(RegisterModel model, string userAgent, string ipAddress)
         {
             try
             {
                 var identityUser = await _userManager.FindByNameAsync(model.Email);
                 if (identityUser != null)
-                    return new ApiResponse<Session> { Success = false, Message = "User account already exists!" };
+                    return ApiResponse<Session>.FailureResponse("User account already exists!");
 
                 var applicationUser = await _context.ApplicationUsers
                     .FirstOrDefaultAsync(u => u.Email == model.Email);
@@ -159,7 +138,7 @@ namespace WVCB.API.Services
                 if (!result.Succeeded)
                 {
                     var errors = result.Errors.Select(e => e.Description).ToList();
-                    return new ApiResponse<Session> { Success = false, Message = "User account creation failed!", Errors = errors.ToArray() };
+                    return ApiResponse<Session>.FailureResponse("User account creation failed!", errors);
                 }
 
                 applicationUser.IdentityUserId = identityUser.Id;
@@ -177,36 +156,29 @@ namespace WVCB.API.Services
                 await _emailService.SendEmailAsync(identityUser.Email, "Confirm your email", $"Please confirm your account by clicking this link: <a href='{confirmationLink}'>Confirm Email</a>");
 
                 // Create a session for the new user
+                var jwtToken = await GenerateJwtTokenAsync(identityUser, applicationUser);
                 var session = new Session
                 {
                     UserId = applicationUser.Id,
-                    ExpiresAt = DateTime.UtcNow.AddHours(3), // Set expiration time as needed
+                    ExpiresAt = jwtToken.ValidTo,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
                     UserAgent = userAgent,
                     IpAddress = ipAddress,
                     LastActive = DateTime.UtcNow,
-                    User = applicationUser
+                    User = applicationUser,
+                    Token = new JwtSecurityTokenHandler().WriteToken(jwtToken)
                 };
 
                 _context.Sessions.Add(session);
                 await _context.SaveChangesAsync();
 
-                var jwtToken = await GenerateJwtTokenAsync(identityUser, applicationUser);
-                session.Token = new JwtSecurityTokenHandler().WriteToken(jwtToken);
-
-                return new ApiResponse<Session>
-                {
-                    Success = true,
-                    Message = "User account created successfully! Please check your email to confirm your account.",
-                    Data = session
-                };
+                return ApiResponse<Session>.SuccessResponse(session, "User account created successfully! Please check your email to confirm your account.");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred during user registration");
-                //errors hsould be an array
-                return new ApiResponse<Session> { Success = false, Message = "An unexpected error occurred during registration.", Errors = new List<string> { ex.Message }.ToArray() };
+                return ApiResponse<Session>.FailureResponse("An unexpected error occurred during registration.", new List<string> { ex.Message });
             }
         }
 
@@ -215,22 +187,103 @@ namespace WVCB.API.Services
             var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null)
             {
-                return new ApiResponse<ApplicationUser> { Success = false, Message = "User not found." };
+                return ApiResponse<ApplicationUser>.FailureResponse("User not found.");
             }
 
             var identityUser = await _userManager.FindByIdAsync(userId);
             if (identityUser == null)
             {
-                return new ApiResponse<ApplicationUser> { Success = false, Message = "User not found." };
+                return ApiResponse<ApplicationUser>.FailureResponse("User not found.");
             }
 
             var applicationUser = await _applicationUserManager.FindByIdentityUserIdAsync(identityUser.Id);
             if (applicationUser == null)
             {
-                return new ApiResponse<ApplicationUser> { Success = false, Message = "User profile not found." };
+                return ApiResponse<ApplicationUser>.FailureResponse("User profile not found.");
             }
 
-            return new ApiResponse<ApplicationUser> { Success = true, Data = applicationUser };
+            return ApiResponse<ApplicationUser>.SuccessResponse(applicationUser);
+        }
+
+        private async Task<JwtSecurityToken> GenerateJwtTokenAsync(IdentityUser<Guid> identityUser, ApplicationUser applicationUser)
+        {
+            var userRoles = await _userManager.GetRolesAsync(identityUser);
+
+            var authClaims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, identityUser.UserName),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim("ApplicationUserId", applicationUser.Id.ToString()),
+                new Claim(ClaimTypes.Role, applicationUser.Role.ToString())
+            };
+
+            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]));
+
+            return new JwtSecurityToken(
+                issuer: _configuration["JWT:ValidIssuer"],
+                audience: _configuration["JWT:ValidAudience"],
+                expires: DateTime.Now.AddHours(3),
+                claims: authClaims,
+                signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+            );
+        }
+
+        public async Task<ApiResponse<string>> ConfirmEmailAsync(string userId, string token)
+        {
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
+                return ApiResponse<string>.FailureResponse("Invalid email confirmation token");
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return ApiResponse<string>.FailureResponse("Unable to find user");
+
+            var result = await _userManager.ConfirmEmailAsync(user, token);
+            if (result.Succeeded)
+                return ApiResponse<string>.SuccessResponse("Thank you for confirming your email. You can now log in to your account.");
+            else
+                return ApiResponse<string>.FailureResponse("Error confirming your email.");
+        }
+
+        public async Task<ApiResponse<string>> ForgotPasswordAsync(string email)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null || !(await _userManager.IsEmailConfirmedAsync(user)))
+                return ApiResponse<string>.SuccessResponse("If your email is registered and confirmed, you will receive a password reset link shortly.");
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+            var frontendUrl = _configuration[$"FrontendUrls:{(_environment.IsDevelopment() ? "Development" : "Production")}"];
+            var resetLink = $"{frontendUrl}/reset-password?email={WebUtility.UrlEncode(email)}&token={encodedToken}";
+
+            await _emailService.SendEmailAsync(user.Email, "Reset your password", $"Please reset your password by clicking this link: <a href='{resetLink}'>Reset Password</a>");
+
+            return ApiResponse<string>.SuccessResponse("If your email is registered and confirmed, you will receive a password reset link shortly.");
+        }
+
+        public async Task<ApiResponse<string>> ResetPasswordAsync(ResetPasswordModel model)
+        {
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+                return ApiResponse<string>.FailureResponse("Invalid reset attempt.");
+
+            var result = await _userManager.ResetPasswordAsync(user, model.Token, model.NewPassword);
+            if (result.Succeeded)
+                return ApiResponse<string>.SuccessResponse("Your password has been reset successfully.");
+            else
+                return ApiResponse<string>.FailureResponse("Error resetting your password. Please try again.", result.Errors.Select(e => e.Description).ToList());
+        }
+
+        public async Task<ApiResponse<string>> LogoutAsync(Guid sessionId)
+        {
+            var session = await _context.Sessions.FindAsync(sessionId);
+            if (session != null)
+            {
+                _context.Sessions.Remove(session);
+                await _context.SaveChangesAsync();
+            }
+
+            return ApiResponse<string>.SuccessResponse("Logged out successfully");
         }
     }
 }

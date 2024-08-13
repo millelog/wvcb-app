@@ -14,9 +14,25 @@
     >
       {{ message }}
     </div>
+    <div
+      *ngIf="error"
+      class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4"
+      role="alert"
+    >
+      <p class="font-bold">Error</p>
+      <p>{{ error.message }}</p>
+      <ul
+        *ngIf="error.errors && error.errors.length > 0"
+        class="mt-2 list-disc list-inside"
+      >
+        <li *ngFor="let errorMsg of error.errors" class="text-sm">
+          {{ errorMsg }}
+        </li>
+      </ul>
+    </div>
     <div *ngIf="isLoading" class="text-center">
       <p>Confirming your email...</p>
-      <!-- You can add a loading spinner here -->
+      <!-- Loading spinner -->
       <svg
         class="animate-spin h-5 w-5 mx-auto text-secondary"
         xmlns="http://www.w3.org/2000/svg"
